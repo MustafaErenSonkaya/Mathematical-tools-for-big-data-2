@@ -6,7 +6,10 @@ This project answers that question on real data from 100 NASA jet engines, and l
 University project for *Mathematical Techniques for Big Data*, topic 6.3 "Sequential change and
 anomaly detection" (MSc Data Science, University of Aveiro).
 
-![Live dashboard in Grafana](docs/img/grafana_dashboard.png)
+![Live dashboard in Grafana](docs/img/grafana_dashboard_top.png)
+
+*The live Grafana dashboard: a sensor signal with an injected jump (red), when each detector raised an
+alarm, and two detector statistics against their alarm limits. [See the whole dashboard.](docs/img/grafana_dashboard.png)*
 
 ## What it does, in one minute
 
