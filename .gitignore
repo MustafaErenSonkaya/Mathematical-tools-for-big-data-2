@@ -6,6 +6,9 @@ __pycache__/
 
 # local outputs that scripts can regenerate on demand
 out/
+calibration_quick.json
+reports/calibration_quick.md
+reports/figures/calibration_curves_quick.png
 
 # OS / editor
 .DS_Store

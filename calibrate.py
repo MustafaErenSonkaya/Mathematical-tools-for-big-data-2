@@ -29,7 +29,9 @@ Writes calibration.json (read by params.yaml "auto" and the app's
 reports/figures/calibration_curves.png.
 
     python calibrate.py              # full grid (a few minutes)
-    python calibrate.py --quick      # default shapes only
+    python calibrate.py --quick      # default shapes only, about 30 s. Writes
+                                     # calibration_quick.json and *_quick reports, so
+                                     # the full calibration.json is never replaced
 """
 from __future__ import annotations
 
@@ -173,8 +175,12 @@ def main(argv=None):
     ap.add_argument("--quick", action="store_true", help="only the default shape of each method")
     ap.add_argument("--copies", type=int, default=20,
                     help="simulated fleets per iid source (20 = the saved calibration.json)")
-    ap.add_argument("--out", default=str(ROOT / "calibration.json"))
+    ap.add_argument("--out", help="output file (default: calibration.json, or calibration_quick.json "
+                                  "with --quick)")
     a = ap.parse_args(argv)
+    # a quick run only knows the default kappa / lambda / delta; writing it over the full
+    # calibration.json would silently give wrong thresholds for every other setting
+    a.out = a.out or str(ROOT / ("calibration_quick.json" if a.quick else "calibration.json"))
 
     params = load_params(resolve=False)
     c = params["calibration"]
@@ -249,10 +255,10 @@ def main(argv=None):
     with open(a.out, "w", encoding="utf-8") as f:
         json.dump(cal, f, indent=1)
     print(f"wrote {a.out}")
-    write_report(cal, curves, defaults)
+    write_report(cal, curves, defaults, suffix="_quick" if a.quick else "")
 
 
-def write_report(cal, curves, defaults):
+def write_report(cal, curves, defaults, suffix=""):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -291,7 +297,7 @@ def write_report(cal, curves, defaults):
     for f, row in cal["life_fraction_sweep"].items():
         lines.append(f"| {float(f):.0%} of life | {row['cycles']} | "
                      + " | ".join((f"{row[m]:.2e}" if m == "sprt" else f"{row[m]:.2f}") for m in METHOD_ORDER) + " |")
-    (rep / "calibration.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    (rep / f"calibration{suffix}.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     fig, axes = plt.subplots(1, 5, figsize=(20, 4.2))
     styles = {"iid": ("#1f77b4", "-"), "iid_est": ("#ff7f0e", "--"), "real_early": ("#9467bd", "-."),
@@ -316,8 +322,8 @@ def write_report(cal, curves, defaults):
     axes[0].legend(fontsize=8)
     fig.suptitle(f"Calibration: ARL0 of the whole system ({cal['p']} sensors) against the threshold")
     fig.tight_layout()
-    fig.savefig(rep / "figures" / "calibration_curves.png", dpi=120)
-    print(f"wrote {rep / 'calibration.md'} and the figure")
+    fig.savefig(rep / "figures" / f"calibration_curves{suffix}.png", dpi=120)
+    print(f"wrote {rep / f'calibration{suffix}.md'} and the figure")
 
 
 if __name__ == "__main__":

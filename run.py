@@ -11,7 +11,8 @@
 
 Extra words are passed on, for example:
     python run.py evaluate E1 E3          only experiments E1 and E3
-    python run.py calibrate --quick       only the default settings (about 30 s)
+    python run.py calibrate --quick       only the default settings (about 30 s, writes
+                                          calibration_quick.json; calibration.json is kept)
     python run.py test -k cusum           only the tests with "cusum" in the name
     python run.py app --port 8001         another port
     python run.py docker --app-port 8001 --grafana-port 3001 --prometheus-port 9091
