@@ -1,0 +1,11 @@
+variant,method,engines_alarmed,first_before_early,median_rul_first,median_rul_after_early,p10_rul_after_early,median_alarms
+iid_est,shewhart,1.0,0.08,100.5,96.0,61.9,68.0
+iid_est,sprt,1.0,0.07,120.0,120.0,83.9,82.0
+iid_est,cusum,1.0,0.09,121.0,120.0,83.9,81.5
+iid_est,ewma,1.0,0.1,118.5,118.5,83.0,91.5
+iid_est,mewma,1.0,0.19,129.5,126.5,88.9,86.5
+real,shewhart,1.0,0.0,57.5,57.5,29.9,41.0
+real,sprt,1.0,0.0,58.5,58.5,29.0,20.5
+real,cusum,1.0,0.0,59.5,59.5,29.9,21.0
+real,ewma,1.0,0.0,52.0,52.0,25.9,33.0
+real,mewma,1.0,0.0,72.5,72.5,48.0,28.5

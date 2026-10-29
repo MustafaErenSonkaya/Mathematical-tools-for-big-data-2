@@ -1,0 +1,8 @@
+# Only what the live app container needs.
+numpy==2.5.4
+pandas==3.1.0
+PyYAML==6.0.3
+fastapi==0.162.0
+uvicorn==0.54.0
+prometheus_client==0.26.0
+pydantic==2.14.1

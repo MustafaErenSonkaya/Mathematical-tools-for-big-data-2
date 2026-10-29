@@ -1,0 +1,102 @@
+params:
+  scenario:
+    data: data/train_FD001.txt
+    sensors: all
+    engine: 1
+    loop_engines: true
+    replay_speed: 1.0
+    injector_config: config.yaml
+  model:
+    mu0: per_engine
+    sigma0: fleet
+    cov: fleet
+    wear_direction: data
+  baseline_cycles: 30
+  detectors:
+    shewhart:
+      k: 3.86706
+    sprt:
+      delta: 1.0
+      alpha: 9.2978e-06
+      beta: 0.1
+    cusum:
+      kappa: 0.5
+      h: 12.1832
+    ewma:
+      lam: 0.1
+      L: 4.46232
+      rho: 0.0
+    mewma:
+      lam: 0.1
+      h: 48.5771
+  restart: reset
+  clip: null
+  alarm_rule: any
+  calibration:
+    target_arl0: 500
+    targets:
+    - 200
+    - 500
+    - 1000
+    - 2000
+    source: iid_est
+    clean_life_fraction: 0.6
+    early_life_fraction: 0.3
+    seed: 7
+  scoring:
+    grace: 10
+    clean_life_fraction: 0.6
+sensors:
+- s2
+- s3
+- s4
+- s7
+- s8
+- s9
+- s11
+- s12
+- s13
+- s14
+- s15
+- s17
+- s20
+- s21
+sigma0:
+  s2: 0.302186
+  s3: 4.025142
+  s4: 3.963635
+  s7: 0.406802
+  s8: 0.031383
+  s9: 4.234004
+  s11: 0.101433
+  s12: 0.303606
+  s13: 0.029963
+  s14: 3.113578
+  s15: 0.020056
+  s17: 0.930307
+  s20: 0.099869
+  s21: 0.061139
+wear_direction:
+  s2: 1
+  s3: 1
+  s4: 1
+  s7: -1
+  s8: 1
+  s9: 1
+  s11: 1
+  s12: -1
+  s13: 1
+  s14: 1
+  s15: 1
+  s17: 1
+  s20: -1
+  s21: -1
+seeds:
+  E1: 101
+  E2: 202
+  E3: 303
+  E4: 404
+  E5: 505
+  E6: no injection
+  E7: 707
+calibration_file: calibration.json

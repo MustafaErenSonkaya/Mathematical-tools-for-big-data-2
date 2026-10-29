@@ -1,0 +1,8 @@
+# Scrape the live app every second (one replay cycle per second at most).
+global:
+  scrape_interval: 1s
+  evaluation_interval: 1s
+scrape_configs:
+  - job_name: cmapss_app
+    static_configs:
+      - targets: ["app:8000"]

@@ -1,0 +1,63 @@
+# All settings of the detection system, in three groups.
+# Full explanation (meaning, range, how chosen, effect): docs/STAGE3_parameters_and_ui.md
+#
+# Units: every size, allowance and limit is in sigma0 units (sigma0 = the
+# normal noise std of that sensor), so one value means the same thing for a
+# temperature in °R and a speed in rpm.
+
+# ---------------------------------------------------------------------------
+# 1) SCENARIO PARAMETERS: what the data looks like. Set by the user.
+# ---------------------------------------------------------------------------
+scenario:
+  data: data/train_FD001.txt
+  sensors: all            # "all" = the 14 sensors that move in FD001
+  engine: 1               # engine replayed first by the live app
+  loop_engines: true      # live app: go to the next engine at the end of life
+  replay_speed: 1.0       # cycles per second (max 1.0 = the Prometheus scrape rate)
+  injector_config: config.yaml   # all injector settings (kinds, per_100, sizes, seed, mode)
+
+# ---------------------------------------------------------------------------
+# 2) MODEL PARAMETERS: estimated from the data, NOT chosen.
+#    Listed here only to say HOW they are estimated.
+# ---------------------------------------------------------------------------
+model:
+  mu0: per_engine         # mean of the first baseline_cycles of each engine
+  sigma0: fleet           # fleet: within-engine std pooled over the 100 engines (stable)
+                          # engine: std of this engine's own baseline window (only 30 points)
+  cov: fleet              # MEWMA Sigma: pooled within-engine correlation of the baseline windows
+  wear_direction: data    # sign of corr(sensor, life fraction); used by the injector "wear" direction
+  # SPRT f0 = N(mu0, sigma0^2) and f1 = N(mu0 +- delta*sigma0, sigma0^2) follow from mu0, sigma0, delta
+
+# ---------------------------------------------------------------------------
+# 3) HYPERPARAMETERS: chosen and tuned.
+#    "auto" = read from calibration.json (threshold that gives target_arl0
+#    for the "any sensor alarms" rule on the chosen calibration source).
+# ---------------------------------------------------------------------------
+baseline_cycles: 30       # healthy warm-up window; same window the injector keeps clean
+
+detectors:
+  shewhart: {k: auto}                        # alarm when |z| > k
+  sprt:     {delta: 1.0, alpha: auto, beta: 0.1}   # design shift, Wald errors of ONE test
+  cusum:    {kappa: 0.5, h: auto}            # kappa = delta/2 heuristic, decision interval h
+  ewma:     {lam: 0.1, L: auto, rho: 0.0}    # smoothing weight, limit width, irregular-time rate
+  mewma:    {lam: 0.1, h: auto}              # smoothing weight, T2 limit
+
+restart: reset            # reset: statistic restarts at 0 after an alarm (counts each alarm once)
+                          # continue: keeps running; only the start of an alarm period is counted
+clip: null                # optional: clip z to [-clip, clip] before updating (robust to spikes)
+alarm_rule: any           # univariate methods: system alarm when ANY monitored sensor alarms
+
+calibration:
+  target_arl0: 500        # in-control average run length (cycles) of the whole system
+  targets: [200, 500, 1000, 2000]   # also calibrated, for the app's "auto threshold" menu
+  source: iid_est         # iid | iid_est | real_early | real  (which calibration "auto" uses)
+                          # iid_est = iid noise with mu0 estimated from 30 cycles. It matches the
+                          # real healthy data (real_early) and is 20x more precise. "real" (to 60%
+                          # of life) treats the start of wear as noise and gives very high limits.
+  clean_life_fraction: 0.6  # "real" source: in-control cycles = 31 .. 60% of life
+  early_life_fraction: 0.3  # "real_early" source: 31 .. 30% of life (wear not yet visible)
+  seed: 7
+
+scoring:
+  grace: 10               # cycles after an event end in which an alarm still counts as a detection
+  clean_life_fraction: 0.6   # false alarms counted only before this fraction of life (real wear after it)

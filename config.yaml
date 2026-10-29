@@ -1,0 +1,51 @@
+# Anomaly injection settings.
+# Sizes are in sigma0 units: 1 = one standard deviation of the sensor's
+# normal noise (measured in the healthy start of each engine).
+# Frequencies are "expected new events per 100 cycles, per sensor".
+
+seed: 42              # same seed + same settings = same anomalies every run
+baseline_cycles: 30   # first 30 cycles of each engine stay clean (detectors warm up here)
+min_gap: 10           # at least 10 clean cycles between two events on one sensor
+mode: independent     # independent: each sensor gets its own events
+                      # joint: one event hits all chosen sensors at the same cycle
+
+kinds:
+  spike:              # single bad reading
+    enabled: true
+    per_100: 2.0      # ~2 spikes per 100 cycles
+    magnitude: [4, 8] # 4 to 8 sigma0
+    direction: both   # up | down | both | wear
+
+  level_shift:        # sudden jump that stays (CUSUM's target)
+    enabled: true
+    per_100: 0.5
+    magnitude: [1, 3] # small shifts are the interesting ones: hard to see by eye
+    duration: [20, 60]   # null = stays until the engine's last cycle
+    direction: both
+
+  drift:              # slow ramp, then holds (EWMA's target)
+    enabled: true
+    per_100: 0.3
+    magnitude: [2, 5] # offset reached at the end of the ramp
+    duration: [30, 80]   # ramp length in cycles
+    hold: [10, 30]       # cycles it stays at the final offset afterwards
+    direction: both
+
+  noise_burst:        # noise std multiplied by 'magnitude', mean unchanged
+    enabled: false
+    per_100: 0.3
+    magnitude: [2, 4]
+    duration: [10, 30]
+
+  stuck:              # sensor freezes at its last value
+    enabled: false
+    per_100: 0.2
+    duration: [10, 30]
+
+# Fixed events at exact cycles, on top of the random ones. Useful for a
+# repeatable demo ("a +2 sigma shift on T50 at cycle 80 of engine 1").
+# Leave out sensors/units to apply to all of them.
+scheduled: []
+#  - {kind: level_shift, start: 80, duration: 40, magnitude: 2.0, direction: up, sensors: [s4], units: [1]}
+#  - {kind: drift, start: 60, duration: 50, hold: 20, magnitude: 4.0, direction: wear, units: [2]}
+#  - {kind: spike, start: 45, magnitude: 7.0, direction: down, sensors: [s11]}

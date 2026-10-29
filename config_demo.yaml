@@ -1,0 +1,19 @@
+# Demo: one fixed example of every anomaly kind on engine 1, plus a few
+# random spikes. Good for a first look and for slides.
+seed: 0
+baseline_cycles: 30
+min_gap: 10
+mode: independent
+kinds:
+  spike:       {enabled: true,  per_100: 1.0, magnitude: [4, 7], direction: both}
+  level_shift: {enabled: false}
+  drift:       {enabled: false}
+  noise_burst: {enabled: false}
+  stuck:       {enabled: false}
+scheduled:
+  - {kind: level_shift, start: 60,  duration: 40, magnitude: 2.0, direction: up,   sensors: [s4]}
+  - {kind: drift,       start: 110, duration: 40, hold: 20, magnitude: 4.0, direction: down, sensors: [s4]}
+  - {kind: noise_burst, start: 50,  duration: 30, magnitude: 3.0, sensors: [s11]}
+  - {kind: stuck,       start: 110, duration: 25, sensors: [s11]}
+  - {kind: level_shift, start: 70,  duration: 35, magnitude: 1.5, direction: down, sensors: [s7]}
+  - {kind: spike,       start: 140, magnitude: 6.0, direction: up, sensors: [s7]}

@@ -1,0 +1,3 @@
+# keep LF everywhere: config files are mounted into Linux containers
+* text=auto eol=lf
+*.png binary

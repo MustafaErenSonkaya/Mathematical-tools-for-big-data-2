@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Change Detection Control</title>
+<style>
+  :root { --bg:#f5f6f8; --card:#fff; --ink:#1d2330; --muted:#667085; --line:#d9dde3; --acc:#1f6feb;
+          --ok:#1a7f37; --bad:#cf222e; --warn:#9a6700; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; background:var(--bg); color:var(--ink); }
+  header { background:#111827; color:#fff; padding:12px 20px; display:flex; flex-wrap:wrap; gap:16px; align-items:center; }
+  header h1 { font-size:17px; margin:0 12px 0 0; font-weight:600; }
+  header .pill { background:#1f2937; border-radius:6px; padding:4px 10px; }
+  header a { color:#93c5fd; margin-left:auto; font-weight:600; }
+  main { display:grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap:16px; padding:16px; }
+  section { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:14px 16px; }
+  h2 { font-size:15px; margin:0 0 10px; }
+  h3 { font-size:13px; margin:14px 0 6px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+  .row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:6px 0; }
+  label { color:var(--muted); }
+  button { border:1px solid var(--line); background:#fff; border-radius:6px; padding:5px 10px; cursor:pointer; font:inherit; }
+  button.primary { background:var(--acc); color:#fff; border-color:var(--acc); }
+  button:hover { filter:brightness(0.96); }
+  input[type=number] { width:64px; padding:3px 4px; border:1px solid var(--line); border-radius:4px; font:inherit; }
+  select { padding:3px 4px; border:1px solid var(--line); border-radius:4px; font:inherit; }
+  input[type=range] { width:150px; }
+  table { border-collapse:collapse; width:100%; font-size:13px; }
+  th, td { text-align:left; padding:3px 6px; border-bottom:1px solid var(--line); }
+  .kind { border:1px solid var(--line); border-radius:6px; padding:6px 8px; margin:6px 0; }
+  .kind b { display:inline-block; width:90px; }
+  .det { border:1px solid var(--line); border-radius:6px; padding:6px 8px; margin:6px 0; }
+  .param { display:grid; grid-template-columns: 70px 1fr 80px; gap:6px; align-items:center; }
+  .val { font-variant-numeric: tabular-nums; }
+  .true { color:var(--ok); } .false { color:var(--bad); } .wear { color:var(--warn); }
+  #msg { position:fixed; bottom:14px; right:14px; max-width:420px; padding:10px 14px; border-radius:6px;
+         color:#fff; display:none; }
+  .wide { grid-column: 1 / -1; }
+  .hint { color:var(--muted); font-size:12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>C-MAPSS sequential change detection</h1>
+  <span class="pill">engine <b id="st-engine">-</b></span>
+  <span class="pill">cycle <b id="st-cycle">-</b> / <span id="st-life">-</span></span>
+  <span class="pill" id="st-play">-</span>
+  <span class="pill" id="st-base"></span>
+  <a id="grafana" href="#" target="_blank" rel="noopener">Open Grafana dashboard &rarr;</a>
+</header>
+
+<main>
+<section>
+  <h2>Replay</h2>
+  <div class="row">
+    <label>Engine</label><select id="engine"></select>
+    <button onclick="replay({action:'play'})">Play</button>
+    <button onclick="replay({action:'pause'})">Pause</button>
+    <button onclick="replay({action:'restart'})">Restart</button>
+    <button onclick="replay({action:'next'})">Next engine</button>
+  </div>
+  <div class="row">
+    <label>Speed</label>
+    <input type="range" id="speed" min="0.1" max="1" step="0.05">
+    <span class="val" id="speed-v"></span> cycles/s
+  </div>
+  <div class="row"><label><input type="checkbox" id="loop"> loop over engines</label></div>
+  <p class="hint">Maximum speed is 1 cycle/s because Prometheus scrapes every 1 s. Faster replay would skip cycles in the stored series.</p>
+
+  <h3>Active injected events</h3>
+  <table><thead><tr><th>sensor</th><th>kind</th><th>start</th><th>end</th><th>size</th><th>source</th></tr></thead>
+    <tbody id="events"></tbody></table>
+</section>
+
+<section>
+  <h2>Injection</h2>
+  <div class="row">
+    <span class="hint">Presets:</span>
+    <button onclick="preset('calm')">Calm</button>
+    <button onclick="preset('cusum_demo')">CUSUM demo</button>
+    <button onclick="preset('ewma_demo')">EWMA demo</button>
+    <button onclick="preset('spikes_only')">Spikes only</button>
+  </div>
+  <div id="kinds"></div>
+  <div class="row">
+    <label>Mode</label>
+    <select id="mode"><option>independent</option><option>joint</option></select>
+    <label>min gap</label><input type="number" id="min_gap" min="0" max="100">
+    <button class="primary" onclick="applyInjector()">Apply injection settings</button>
+  </div>
+  <div class="row">
+    <label>Seed</label><input type="number" id="seed">
+    <button onclick="applySeed()">Apply seed (restarts engine)</button>
+  </div>
+
+  <h3>Inject now</h3>
+  <div class="row">
+    <select id="tr-sensor"></select>
+    <label>size</label><input type="number" id="tr-mag" value="2" step="0.5" min="0" max="20">
+    <label>cycles</label><input type="number" id="tr-dur" value="40" min="1" max="300">
+    <select id="tr-dir"><option>up</option><option>down</option><option>wear</option></select>
+  </div>
+  <div class="row">
+    <button onclick="trigger('spike')">Spike</button>
+    <button onclick="trigger('level_shift')">Level shift</button>
+    <button onclick="trigger('drift')">Drift</button>
+  </div>
+  <p class="hint">Sizes are in sigma0 units (the normal noise std of that sensor). Drift: ramps to the size over the given cycles.</p>
+</section>
+
+<section>
+  <h2>Detectors</h2>
+  <div class="row">
+    <label>target ARL0</label><select id="target"></select>
+    <label>source</label><select id="source"></select>
+    <button class="primary" onclick="autoThreshold()">Auto threshold</button>
+    <button onclick="post('/api/reset_detectors', {}).then(()=>toast('Detectors reset'))">Reset</button>
+  </div>
+  <p class="hint">Auto threshold reads calibration.json: the limit that gives this ARL0 for the whole system (any of 14 sensors) at the current kappa / lambda / delta.</p>
+  <div id="dets"></div>
+  <div class="row">
+    <label>after an alarm</label>
+    <select id="restart"><option value="reset">reset (restart at 0)</option><option value="continue">continue</option></select>
+    <label>clip |z| at</label><input type="number" id="clip" min="0.5" step="0.5" placeholder="none">
+    <button onclick="applyRobust()">Apply</button>
+  </div>
+  <p class="hint">Clip limits every reading to &plusmn;clip sigma0 before SPRT, CUSUM, EWMA and MEWMA use it, so one spike cannot cause an alarm on its own (try 4 with the Spikes only preset). Shewhart is never clipped. Empty = no clipping.</p>
+  <div class="row"><label>grace window (scoring)</label><input type="number" id="grace" min="0" max="100">
+    <button onclick="post('/api/config', {scoring:{grace:+val('grace')}}).then(()=>toast('Grace window set'))">Set</button></div>
+</section>
+
+<section class="wide">
+  <h2>Recent alarms</h2>
+  <p class="hint">true = inside an injected event (+ grace); false = healthy part of life, no event; wear = late life (real degradation), no event.</p>
+  <table><thead><tr><th>engine</th><th>cycle</th><th>method</th><th>sensor</th><th>outcome</th><th>event kind</th></tr></thead>
+    <tbody id="alarms"></tbody></table>
+</section>
+</main>
+<div id="msg"></div>
+
+<script>
+const PARAMS = {
+  shewhart: [["k", 2, 7, 0.01]],
+  sprt:     [["delta", 0.25, 3, 0.05], ["alpha", -14, -1, 0.1, "log"], ["beta", 0.01, 0.5, 0.01]],
+  cusum:    [["kappa", 0, 2, 0.05], ["h", 1, 40, 0.1]],
+  ewma:     [["lam", 0.01, 1, 0.01], ["L", 1, 8, 0.01]],
+  mewma:    [["lam", 0.01, 1, 0.01], ["h", 5, 150, 0.5]],
+};
+const NAMES = {shewhart:"Shewhart", sprt:"SPRT", cusum:"CUSUM", ewma:"EWMA", mewma:"MEWMA"};
+let CFG = null;
+const $ = id => document.getElementById(id);
+const val = id => $(id).value;
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+function toast(text, err) {
+  const m = $("msg"); m.textContent = text; m.style.background = err ? "#cf222e" : "#1a7f37";
+  m.style.display = "block"; clearTimeout(m._t); m._t = setTimeout(() => m.style.display = "none", err ? 6000 : 2000);
+}
+async function post(url, body) {
+  const r = await fetch(url, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)});
+  const j = await r.json();
+  if (!r.ok) { toast(j.error || "error", true); throw new Error(j.error); }
+  return j;
+}
+const replay = b => post("/api/replay", b).then(() => refreshConfig());
+const preset = n => post("/api/preset", {name:n}).then(c => { CFG = c; renderInjector(); toast("Preset: " + n); });
+
+function fmt(v) { return Math.abs(v) < 1e-3 && v !== 0 ? v.toExponential(2) : (+v).toFixed(3).replace(/\.?0+$/, ""); }
+
+function renderInjector() {
+  const k = CFG.injector.kinds, box = $("kinds"); box.innerHTML = "";
+  for (const [name, s] of Object.entries(k)) {
+    const d = document.createElement("div"); d.className = "kind";
+    let h = `<div class="row"><label><input type="checkbox" data-k="${name}" data-f="enabled" ${s.enabled?"checked":""}> <b>${name}</b></label>
+      <label>per 100</label><input type="range" min="0" max="10" step="0.1" value="${s.per_100}" data-k="${name}" data-f="per_100"
+       oninput="this.nextElementSibling.textContent=this.value"><span class="val">${s.per_100}</span></div><div class="row">`;
+    if (s.magnitude) h += `<label>size</label><input type="number" step="0.5" value="${s.magnitude[0]}" data-k="${name}" data-f="mag0">-
+      <input type="number" step="0.5" value="${s.magnitude[1]}" data-k="${name}" data-f="mag1">`;
+    if ("duration" in s && s.duration) h += `<label>cycles</label><input type="number" value="${s.duration[0]}" data-k="${name}" data-f="dur0">-
+      <input type="number" value="${s.duration[1]}" data-k="${name}" data-f="dur1">`;
+    if (s.direction) h += `<select data-k="${name}" data-f="direction">${["up","down","both","wear"].map(o =>
+      `<option ${o===s.direction?"selected":""}>${o}</option>`).join("")}</select>`;
+    d.innerHTML = h + "</div>"; box.appendChild(d);
+  }
+  $("mode").value = CFG.injector.mode; $("min_gap").value = CFG.injector.min_gap; $("seed").value = CFG.injector.seed;
+}
+function applyInjector() {
+  const kinds = {};
+  document.querySelectorAll("#kinds [data-k]").forEach(el => {
+    const k = el.dataset.k, f = el.dataset.f; kinds[k] = kinds[k] || {};
+    if (f === "enabled") kinds[k].enabled = el.checked;
+    else if (f === "per_100") kinds[k].per_100 = +el.value;
+    else if (f === "direction") kinds[k].direction = el.value;
+    else if (f === "mag0") (kinds[k].magnitude = kinds[k].magnitude || [])[0] = +el.value;
+    else if (f === "mag1") (kinds[k].magnitude = kinds[k].magnitude || [])[1] = +el.value;
+    else if (f === "dur0") (kinds[k].duration = kinds[k].duration || [])[0] = +el.value;
+    else if (f === "dur1") (kinds[k].duration = kinds[k].duration || [])[1] = +el.value;
+  });
+  post("/api/config", {injector:{kinds, mode:val("mode"), min_gap:+val("min_gap")}})
+    .then(c => { CFG = c; renderInjector(); toast("Injection settings applied"); });
+}
+function applySeed() {
+  post("/api/config", {injector:{seed:+val("seed")}}).then(c => { CFG = c; toast("Seed set, engine restarted"); });
+}
+function trigger(kind) {
+  post("/api/trigger", {kind, sensor:val("tr-sensor"), magnitude:+val("tr-mag"),
+        duration: kind === "spike" ? null : +val("tr-dur"), direction:val("tr-dir")})
+    .then(j => toast(j.message));
+}
+
+function renderDetectors() {
+  const box = $("dets"); box.innerHTML = "";
+  for (const [m, ps] of Object.entries(PARAMS)) {
+    const d = document.createElement("div"); d.className = "det";
+    let h = `<b>${NAMES[m]}</b>`;
+    for (const [p, lo, hi, st, scale] of ps) {
+      const v = CFG.detectors[m][p];
+      const pos = scale === "log" ? Math.log10(v) : v;
+      // a calibrated value can lie outside the default slider range (e.g. source "real"): widen it
+      // instead of letting the slider clamp it, which would change the value on the next move
+      const lo2 = pos < lo ? (scale === "log" ? Math.floor(pos) : pos) : lo;
+      const hi2 = pos > hi ? (scale === "log" ? Math.ceil(pos) : +(pos * 1.5).toPrecision(3)) : hi;
+      h += `<div class="param"><label>${p}${scale==="log"?" (log10)":""}</label>
+        <input type="range" min="${lo2}" max="${hi2}" step="${st}" value="${pos}" data-m="${m}" data-p="${p}" data-s="${scale||""}">
+        <span class="val" id="v-${m}-${p}">${fmt(v)}</span></div>`;
+    }
+    d.innerHTML = h; box.appendChild(d);
+  }
+  box.querySelectorAll("input[type=range]").forEach(el => {
+    const real = () => el.dataset.s === "log" ? Math.pow(10, +el.value) : +el.value;
+    el.oninput = () => $(`v-${el.dataset.m}-${el.dataset.p}`).textContent = fmt(real());
+    el.onchange = () => post("/api/config", {detectors:{[el.dataset.m]:{[el.dataset.p]: real()}}})
+      .then(c => { CFG = c; toast(`${NAMES[el.dataset.m]} ${el.dataset.p} = ${fmt(real())}`); })
+      .catch(() => refreshConfig());
+  });
+  $("grace").value = CFG.scoring.grace;
+  $("restart").value = CFG.detectors.cusum.restart;
+  $("clip").value = CFG.detectors.cusum.clip ?? "";
+}
+function applyRobust() {
+  const clip = val("clip") === "" ? null : +val("clip"), d = {};
+  for (const m of Object.keys(PARAMS)) {
+    d[m] = {restart: val("restart")};
+    if (m !== "shewhart") d[m].clip = clip;
+  }
+  post("/api/config", {detectors: d}).then(c => {
+    CFG = c; toast(`After an alarm: ${val("restart")}; clip: ${clip === null ? "none" : clip + " sigma0"}`);
+  });
+}
+function autoThreshold() {
+  post("/api/auto_threshold", {target_arl0:+val("target"), source:val("source")}).then(j => {
+    const msg = "Thresholds: " + Object.entries(j.set).map(([m, p]) => `${NAMES[m]} ${Object.keys(p)[0]}=${fmt(Object.values(p)[0])}`).join(", ");
+    toast(j.warnings.length ? msg + ". Warning: " + j.warnings.join(" ") : msg, j.warnings.length > 0);
+    refreshConfig();
+  });
+}
+
+async function refreshConfig() {
+  CFG = await (await fetch("/api/config")).json();
+  $("engine").innerHTML = CFG.units.map(u => `<option ${u===CFG.replay.engine?"selected":""}>${u}</option>`).join("");
+  $("speed").max = CFG.replay.max_speed; $("speed").value = CFG.replay.speed; $("speed-v").textContent = CFG.replay.speed;
+  $("loop").checked = CFG.replay.loop;
+  $("tr-sensor").innerHTML = CFG.sensors.map(s => `<option>${s}</option>`).join("");
+  $("target").innerHTML = CFG.calibration.targets.map(t => `<option ${t===CFG.calibration.target_arl0?"selected":""}>${t}</option>`).join("");
+  $("source").innerHTML = CFG.calibration.sources.map(s => `<option ${s===CFG.calibration.source?"selected":""}>${s}</option>`).join("");
+  $("grafana").href = CFG.grafana_url;
+  renderInjector(); renderDetectors();
+}
+async function poll() {
+  try {
+    const s = await (await fetch("/api/status")).json();
+    $("st-engine").textContent = s.engine; $("st-cycle").textContent = s.cycle; $("st-life").textContent = s.life;
+    $("st-play").textContent = s.playing ? "playing at " + s.speed + " cycle/s" : "paused";
+    $("st-base").textContent = s.in_baseline ? "learning baseline (mu0)" : "monitoring";
+    $("events").innerHTML = s.active_events.map(e =>
+      `<tr><td>${esc(e.sensor)}</td><td>${esc(e.kind)}</td><td>${esc(e.start)}</td><td>${esc(e.end ?? "end")}</td><td>${esc(e.magnitude)}</td><td>${esc(e.source)}</td></tr>`).join("")
+      || `<tr><td colspan="6" class="hint">none</td></tr>`;
+    $("alarms").innerHTML = s.recent_alarms.map(a =>
+      `<tr><td>${esc(a.engine)}</td><td>${esc(a.cycle)}</td><td>${esc(NAMES[a.method]||a.method)}</td><td>${esc(a.sensor)}</td><td class="${esc(a.outcome)}">${esc(a.outcome)}</td><td>${esc(a.kind)}</td></tr>`).join("")
+      || `<tr><td colspan="6" class="hint">no alarms yet</td></tr>`;
+  } catch (e) {}
+}
+$("engine").onchange = () => replay({action:"select", engine:+val("engine")});
+$("speed").oninput = () => $("speed-v").textContent = val("speed");
+$("speed").onchange = () => replay({speed:+val("speed")});
+$("loop").onchange = () => replay({loop:$("loop").checked});
+refreshConfig(); poll(); setInterval(poll, 1000);
+</script>
+</body>
+</html>
