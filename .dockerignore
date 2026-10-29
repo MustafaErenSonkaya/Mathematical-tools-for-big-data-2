@@ -5,3 +5,4 @@ reports
 out_demo
 docs
 *.zip
+.git

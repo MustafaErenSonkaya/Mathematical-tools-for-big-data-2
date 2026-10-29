@@ -297,29 +297,29 @@ between two scrapes. For that reason alarm and spike flags stay on for 2 seconds
 
 ## 7. How to run it
 
+`run.py` is the single entry point (Python 3.10 or newer; on Windows `py` works instead of `python`):
+
 ```bash
-docker compose up --build
+python run.py setup        # once: creates .venv and installs the packages
+python run.py test         # 54 tests: injector, detectors, app API
+python run.py docker       # app + Prometheus + Grafana (needs Docker Desktop running)
+python run.py app          # the app alone, without Docker (no Prometheus / Grafana)
+python run.py calibrate    # about 6 minutes, writes calibration.json
+python run.py evaluate     # about 6 minutes, writes reports/
 ```
+
+With Docker running:
 
 * Control page: http://localhost:8000
 * Grafana: http://localhost:3000 (the dashboard "Sequential change detection" opens as the home page)
 * Prometheus: http://localhost:9090 (Status, Targets shows `cmapss_app` as UP)
 
-If these ports are taken by another program: `APP_PORT=8001 GRAFANA_PORT=3001 PROM_PORT=9091 docker compose up --build`.
+The plain Docker command works too: `docker compose up --build`. If these ports are taken by another
+program: `python run.py docker --app-port 8001 --grafana-port 3001 --prometheus-port 9091`.
 
 The ports are opened on this computer only (127.0.0.1), because the control API has no login.
-Prometheus keeps its history in a Docker volume; `docker compose down -v` starts the next run with an
-empty history.
-
-Without Docker, for the scripts:
-
-```bash
-pip install -r requirements.txt
-python -m pytest -q                 # 54 tests: injector, detectors, app API
-python calibrate.py                 # about 6 minutes, writes calibration.json
-python evaluate.py                  # about 6 minutes, writes reports/
-uvicorn app.main:app --port 8000    # the app alone (no Prometheus / Grafana)
-```
+Prometheus keeps its history in a Docker volume; `python run.py docker --fresh` (or
+`docker compose down -v`) starts the next run with an empty history.
 
 ## 8. User interface walkthrough
 
@@ -457,3 +457,5 @@ was subtracted so that only the detectors are measured (section 10 explains why)
 | `docker-compose.yml`, `Dockerfile`, `prometheus/`, `grafana/` | the three services and their configuration |
 | `grafana/make_dashboard.py` | builds the dashboard JSON |
 | `docs/take_screenshots.py` | the screenshots in this document |
+| `run.py` | one command for setup, tests, scripts, app and Docker |
+| `docs/INJECTOR.md` | the anomaly injector from stage 2 |
