@@ -1,4 +1,5 @@
-# Runs on every push to main, on version tags and on pull requests:
+# Runs on every push to main and on pull requests. Version tags (v1.0.0, ...) do not start it again:
+# a tag is put on a commit that was already tested on main.
 #   python  the tests and a quick run of the scripts on Windows, macOS and Linux, Python 3.10 and 3.13,
 #           exactly as the README tells a new user to do it (python run.py setup / test)
 #   docker  builds and starts the app, Prometheus and Grafana, and checks that all three answer
@@ -7,7 +8,6 @@ name: tests
 on:
   push:
     branches: [main]
-    tags: ["v*"]
   pull_request:
   workflow_dispatch:
 
@@ -15,6 +15,7 @@ jobs:
   python:
     name: Python ${{ matrix.python }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20             # a normal run takes 1 to 3 minutes
     strategy:
       fail-fast: false
       matrix:
@@ -38,6 +39,7 @@ jobs:
   docker:
     name: Docker stack (app, Prometheus, Grafana)
     runs-on: ubuntu-latest
+    timeout-minutes: 20             # a normal run takes about 1 minute
     steps:
       - uses: actions/checkout@v4
       - name: Build and start (docker compose up --build)
