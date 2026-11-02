@@ -164,7 +164,7 @@ How this changes the thresholds and the false alarm counts is explained in
 | `reports/` | results, calibration tables, figures (made by the scripts) |
 | `docs/` | the full explanation, the injector guide and the screenshots |
 | `requirements.txt` | the Python packages (`requirements-lock.txt`: the exact versions used for the results) |
-| `.github/workflows/tests.yml` | runs the tests on Windows, macOS and Linux, and starts the Docker stack, on every push |
+| `.github/workflows/tests.yml` | runs the tests on Windows and Linux, and starts the Docker stack, on every push |
 | `LICENSE` | MIT license for the code |
 
 ## If something does not work

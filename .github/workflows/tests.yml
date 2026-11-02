@@ -1,7 +1,10 @@
 # Runs on every push to main and on pull requests. Version tags (v1.0.0, ...) do not start it again:
 # a tag is put on a commit that was already tested on main.
-#   python  the tests and a quick run of the scripts on Windows, macOS and Linux, Python 3.10 and 3.13,
-#           exactly as the README tells a new user to do it (python run.py setup / test)
+#   python  the tests and a quick run of the scripts on Windows and Linux, Python 3.10 and 3.13,
+#           exactly as the README tells a new user to do it (python run.py setup / test).
+#           macOS is not in the list: GitHub's free macOS machines are often busy, and macOS jobs were
+#           cancelled in the queue before they started. When a machine was available the tests passed
+#           on macOS (Python 3.10 and 3.13), and Mac users can also use the Docker path.
 #   docker  builds and starts the app, Prometheus and Grafana, and checks that all three answer
 name: tests
 
@@ -19,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest]
         python: ["3.10", "3.13"]
     steps:
       - uses: actions/checkout@v4
