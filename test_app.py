@@ -127,7 +127,7 @@ def test_flags_clear_while_paused(client):
     s.step()
     assert s._held                                  # the spike and Shewhart's alarm are flagged
     th = s.start()                                  # replay thread, but paused
-    time.sleep(3.2)
+    time.sleep(4.5)                                 # 2 s hold + 1 s loop + margin for slow CI machines
     assert not s._held                              # flags switched off after 2 s
     s.stop()
     th.join(timeout=3)

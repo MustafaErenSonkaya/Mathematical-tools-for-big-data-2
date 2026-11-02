@@ -1,10 +1,33 @@
 # Sequential change detection on jet engine sensors
 
+[![tests](https://github.com/MustafaErenSonkaya/Mathematical-tools-for-big-data-2/actions/workflows/tests.yml/badge.svg)](https://github.com/MustafaErenSonkaya/Mathematical-tools-for-big-data-2/actions/workflows/tests.yml)
+
 How fast can we notice that a sensor signal has changed, without raising false alarms all the time?
 This project answers that question on real data from 100 NASA jet engines, and lets you watch it live.
 
 University project for *Mathematical Techniques for Big Data*, topic 6.3 "Sequential change and
 anomaly detection" (MSc Data Science, University of Aveiro).
+
+## Quick evaluation: only Docker needed, no Python
+
+You only need **Docker Desktop**, installed and running ([docker.com](https://www.docker.com/products/docker-desktop/)).
+Open a terminal and run:
+
+```bash
+git clone https://github.com/MustafaErenSonkaya/Mathematical-tools-for-big-data-2.git
+cd Mathematical-tools-for-big-data-2
+docker compose up --build
+```
+
+The first start takes 1 to 3 minutes, because Docker downloads and builds everything. When the log
+says `Application startup complete`, open:
+
+* the control page: http://localhost:8000
+* the Grafana dashboard: http://localhost:3000
+
+No git? On this page press **Code**, then **Download ZIP**, unzip it, open a terminal in the unzipped
+folder and run only the last command. Stop everything with `Ctrl+C`, then `docker compose down`.
+To see a detection, follow [Try the live system in five steps](#try-the-live-system-in-five-steps).
 
 ![Live dashboard in Grafana](docs/img/grafana_dashboard_top.png)
 
@@ -24,10 +47,10 @@ alarm, and two detector statistics against their alarm limits. [See the whole da
 5. **Live view.** A web page lets you replay engines, inject anomalies with a button and move the
    detector settings. Grafana draws the signals, the detector statistics and the alarms in real time.
 
-## Quick start
+## Full setup with Python: tests, experiments, results
 
-You need **Python 3.10 or newer** ([python.org](https://www.python.org/downloads/)).
-For the live dashboard you also need **Docker Desktop** ([docker.com](https://www.docker.com/products/docker-desktop/)).
+For the tests, the experiments and the app without Docker you need **Python 3.10 or newer**
+([python.org](https://www.python.org/downloads/)). For the live dashboard you also need **Docker Desktop**.
 
 Open a terminal in this folder and run:
 
@@ -59,7 +82,7 @@ You never need to "activate" the environment: `run.py` finds `.venv` by itself.
 
 ## Try the live system in five steps
 
-1. Start Docker Desktop, then run `python run.py docker`. Wait until the log says `Application startup complete`.
+1. Start Docker Desktop, then run `docker compose up --build` (or `python run.py docker`). Wait until the log says `Application startup complete`.
 2. Open http://localhost:8000. Engine 1 is replayed at one cycle per second. During the first 30 cycles
    the detectors only learn what "normal" looks like.
 3. Under **Inject now**, pick sensor `s4`, size `2` and press **Level shift**.
@@ -126,7 +149,7 @@ How this changes the thresholds and the false alarm counts is explained in
 
 | file or folder | what it is |
 |---|---|
-| `run.py` | the one command for everything (see Quick start) |
+| `run.py` | the one command for everything (see Full setup with Python) |
 | `detectors/` | the five detectors, one file each, all with the same interface |
 | `params.yaml` | every setting, in three groups: scenario, model, hyperparameters |
 | `calibrate.py` | finds the alarm thresholds that give the same false alarm rate; writes `calibration.json` |
@@ -141,6 +164,8 @@ How this changes the thresholds and the false alarm counts is explained in
 | `reports/` | results, calibration tables, figures (made by the scripts) |
 | `docs/` | the full explanation, the injector guide and the screenshots |
 | `requirements.txt` | the Python packages (`requirements-lock.txt`: the exact versions used for the results) |
+| `.github/workflows/tests.yml` | runs the tests on Windows, macOS and Linux, and starts the Docker stack, on every push |
+| `LICENSE` | MIT license for the code |
 
 ## If something does not work
 
@@ -163,7 +188,10 @@ How this changes the thresholds and the false alarm counts is explained in
 * [reports/calibration.md](reports/calibration.md): the threshold calibration.
 * [docs/INJECTOR.md](docs/INJECTOR.md): how the anomaly injector works.
 
-## Data
+## Data and license
 
+The code is released under the [MIT License](LICENSE).
+
+The NASA C-MAPSS FD001 files in `data/` are not covered by that license. They are public data from
 A. Saxena and K. Goebel (2008), "Turbofan Engine Degradation Simulation Data Set",
-NASA Ames Prognostics Data Repository. The FD001 files are included in `data/`.
+NASA Ames Prognostics Data Repository; please cite that source when you use them.

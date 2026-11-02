@@ -1,0 +1,64 @@
+# Runs on every push to main, on version tags and on pull requests:
+#   python  the tests and a quick run of the scripts on Windows, macOS and Linux, Python 3.10 and 3.13,
+#           exactly as the README tells a new user to do it (python run.py setup / test)
+#   docker  builds and starts the app, Prometheus and Grafana, and checks that all three answer
+name: tests
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  python:
+    name: Python ${{ matrix.python }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python: ["3.10", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install (python run.py setup)
+        run: python run.py setup
+      - name: Tests (python run.py test)
+        run: python run.py test
+      - name: Experiment E6 runs (python run.py evaluate E6)
+        run: python run.py evaluate E6
+      - name: Quick calibration runs (python run.py calibrate --quick)
+        if: matrix.os == 'ubuntu-latest'
+        run: python run.py calibrate --quick
+
+  docker:
+    name: Docker stack (app, Prometheus, Grafana)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and start (docker compose up --build)
+        run: docker compose up --build -d
+      - name: Check that the three services answer
+        run: |
+          wait_for() {   # wait_for <description> <command>: retry for up to 2 minutes
+            for i in $(seq 1 60); do
+              if eval "$2"; then echo "ok: $1"; return 0; fi
+              sleep 2
+            done
+            echo "FAILED: $1"; return 1
+          }
+          wait_for "control page" "curl -sf http://localhost:8000/ > /dev/null"
+          wait_for "app metrics" "curl -sf http://localhost:8000/metrics | grep -q '^engine_cycle '"
+          wait_for "Grafana" "curl -sf http://localhost:3000/api/health | grep -q '\"ok\"'"
+          wait_for "Grafana dashboard" "curl -sf 'http://localhost:3000/api/search?query=Sequential' | grep -q 'Sequential change detection'"
+          wait_for "Prometheus scrapes the app" "curl -sf -G http://localhost:9090/api/v1/query --data-urlencode 'query=up{job=\"cmapss_app\"}' | grep -q '\"1\"\]'"
+      - name: Logs (only if something failed)
+        if: failure()
+        run: docker compose logs --tail 100
+      - name: Stop
+        if: always()
+        run: docker compose down -v
